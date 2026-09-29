@@ -1,0 +1,1 @@
+"""Claim results component."""

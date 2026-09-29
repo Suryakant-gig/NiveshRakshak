@@ -1,0 +1,1 @@
+"""NiveshRakshak FastAPI entry point."""
