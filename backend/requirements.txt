@@ -1,1 +1,6 @@
-# Add backend dependencies here
+torch
+transformers
+numpy
+scipy
+huggingface-hub
+sentence-tranformers
