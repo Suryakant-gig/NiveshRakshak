@@ -33,3 +33,31 @@ def test_detect_scam_signals_structure():
     assert "severity" in s
     assert "label" in s
     assert "description" in s
+
+
+def test_fake_authority_variations():
+    samples = [
+        "SEBI has approved our guaranteed-return scheme.",
+        "RBI approved high-yield plan.",
+        "Officially approved by SEBI.",
+        "Approved by the government."
+    ]
+    for text in samples:
+        signals = detect_scam_signals(text)
+        types = [s["type"] for s in signals]
+        assert "FAKE_AUTHORITY" in types, f"Failed for text: {text}"
+
+
+def test_authority_mention_without_approval():
+    text = "SEBI released a circular regarding mutual funds."
+    signals = detect_scam_signals(text)
+    types = [s["type"] for s in signals]
+    assert "FAKE_AUTHORITY" not in types
+
+
+def test_guaranteed_and_unrealistic_return_detection():
+    text = "Guaranteed 50% return"
+    signals = detect_scam_signals(text)
+    types = [s["type"] for s in signals]
+    assert "GUARANTEED_RETURN" in types
+    assert "UNREALISTIC_RETURN" in types

@@ -16,9 +16,9 @@ RETURN_PATTERNS = [
 ]
 
 REGULATORY_PATTERNS = [
-    r'(?:sebi|rbi|irdai|sec|pfrda|financial\s+authority)\s+(?:approved|registered|certified|authorized|verified|licensed)',
-    r'(?:approved|registered|certified|authorized|verified|licensed)\s+by\s+(?:sebi|rbi|irdai|sec|pfrda|govt|government)',
-    r'government\s+(?:backed|approved|guaranteed)',
+    r'(?:sebi|rbi|irdai|sec|pfrda|financial\s+authority)\s+(?:has\s+|is\s+|was\s+|officially\s+)?(?:approved|registered|certified|authorized|verified|licensed|endorsed|backed)',
+    r'(?:officially\s+)?(?:approved|registered|certified|authorized|verified|licensed|endorsed|backed)\s+by\s+(?:the\s+)?(?:sebi|rbi|irdai|sec|pfrda|govt|government|financial\s+authority)',
+    r'government\s+(?:has\s+|is\s+|was\s+)?(?:backed|approved|registered|certified|authorized|guaranteed)',
 ]
 
 URGENCY_PATTERNS = [
@@ -30,7 +30,7 @@ URGENCY_PATTERNS = [
 ]
 
 PAYMENT_PATTERNS = [
-    r'(?:send|transfer|deposit|pay)\s*(?:₹|\$)?\s*\d+',
+    r'(?:send|transfer|deposit|pay)\s*(?:rs\.?|₹|\$|inr)?\s*\d+',
     r'(?:upi|gpay|phonepe|bank\s+transfer)\s+(?:payment|transfer|deposit)',
 ]
 

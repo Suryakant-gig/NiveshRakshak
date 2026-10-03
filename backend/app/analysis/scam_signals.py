@@ -67,7 +67,7 @@ def detect_scam_signals(text: str) -> List[Dict[str, Any]]:
         })
 
     # 5. PAYMENT_REQUEST (HIGH)
-    if re.search(r'send\s+money|transfer|deposit|pay\s+(?:to|now|money)|send\s*₹?\s*\d+|pay\s*₹?\s*\d+|upi|gpay', text_lower):
+    if re.search(r'send\s+money|transfer|deposit|pay\s+(?:to|now|money)|(?:send|pay|transfer|deposit)\s*(?:rs\.?|₹|\$|inr)?\s*\d+|upi|gpay|phonepe', text_lower):
         signals.append({
             "type": "PAYMENT_REQUEST",
             "severity": "HIGH",
@@ -76,7 +76,12 @@ def detect_scam_signals(text: str) -> List[Dict[str, Any]]:
         })
 
     # 6. FAKE_AUTHORITY / REGULATORY_CLAIM (HIGH)
-    if re.search(r'sebi\s+approved|rbi\s+approved|sebi\s+registered|government\s+approved|govt\s+approved|rbi\s+registered', text_lower):
+    if re.search(
+        r'\b(?:sebi|rbi|irdai|sec|pfrda|govt|government|financial\s+authority)\s+(?:has\s+|is\s+|was\s+|officially\s+)?(?:approved|registered|certified|authorized|verified|licensed|endorsed|backed)\b'
+        r'|\b(?:officially\s+)?(?:approved|registered|certified|authorized|verified|licensed|endorsed|backed)\s+by\s+(?:the\s+)?(?:sebi|rbi|irdai|sec|pfrda|govt|government|financial\s+authority)\b'
+        r'|\bgovernment\s+(?:has\s+|is\s+|was\s+)?(?:backed|approved|registered|certified|authorized|guaranteed)\b',
+        text_lower
+    ):
         signals.append({
             "type": "FAKE_AUTHORITY",
             "severity": "HIGH",
