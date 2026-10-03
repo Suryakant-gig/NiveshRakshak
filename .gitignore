@@ -17,3 +17,5 @@ data/chroma/
 # OS
 .DS_Store
 Thumbs.db
+
+backend_integration_status.md
