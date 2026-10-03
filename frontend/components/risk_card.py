@@ -1,1 +1,0 @@
-"""Risk summary component."""
