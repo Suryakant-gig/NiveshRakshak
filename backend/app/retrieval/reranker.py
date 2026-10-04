@@ -1,3 +1,4 @@
+import math
 from collections.abc import Sequence
 
 from sentence_transformers import CrossEncoder
@@ -39,8 +40,14 @@ class CrossEncoderReranker:
         ranked = []
         for item, score in zip(valid_evidence, scores):
             result = dict(item)
-            result["reranker_score"] = float(score)
-            result["relevance_score"] = float(score)
+            raw_score = float(score)
+            result["reranker_score"] = raw_score
+            if raw_score >= 0:
+                relevance_score = 1 / (1 + math.exp(-raw_score))
+            else:
+                exp_score = math.exp(raw_score)
+                relevance_score = exp_score / (1 + exp_score)
+            result["relevance_score"] = relevance_score
             ranked.append(result)
 
         ranked.sort(key=lambda result: result["reranker_score"], reverse=True)

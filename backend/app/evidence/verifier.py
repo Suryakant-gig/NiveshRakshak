@@ -12,7 +12,6 @@ class ClaimVerifier:
     _token_pattern = re.compile(r"[a-z0-9]+%?", re.IGNORECASE)
     _negation_terms = {
         "cannot",
-        "can't",
         "no",
         "not",
         "never",
@@ -23,18 +22,20 @@ class ClaimVerifier:
         "invalid",
         "deny",
         "denied",
+        "n't",
     }
-    _negative_claim_terms = {
-        "scam",
-        "scams",
-        "fraud",
-        "fraudulent",
-        "phishing",
-        "deceptive",
-        "illegal",
-        "fake",
-        "warning",
-        "warnings",
+    _predicate_forms = {
+        "approve": {"approve", "approved", "approves", "approving"},
+        "authorize": {"authorize", "authorized", "authorizes", "authorizing"},
+        "confirm": {"confirm", "confirmed", "confirms", "confirming"},
+        "endorse": {"endorse", "endorsed", "endorses", "endorsing"},
+        "guarantee": {"guarantee", "guaranteed", "guarantees", "guaranteeing"},
+        "request": {"request", "requested", "requests", "requesting"},
+        "share": {"share", "shared", "shares", "sharing"},
+        "register": {"register", "registered", "registers", "registering"},
+        "promise": {"promise", "promised", "promises", "promising"},
+        "offer": {"offer", "offered", "offers", "offering"},
+        "pay": {"pay", "paid", "pays", "paying"},
     }
     _stop_words = {
         "about",
@@ -57,6 +58,29 @@ class ClaimVerifier:
         "through",
         "with",
         "would",
+        "cannot",
+        "no",
+        "not",
+        "never",
+        "without",
+        "does",
+        "did",
+        "do",
+        "has",
+        "is",
+        "was",
+        "were",
+        "the",
+        "our",
+        "your",
+        "its",
+    }
+    _regulators = {"sebi", "rbi", "irdai", "pfrda", "sec", "fca", "cftc"}
+    _approval_terms = {"approve", "approved", "authorize", "authorized", "register", "registered"}
+    _generic_targets = {
+        "scheme", "schemes", "company", "companies", "entity", "entities",
+        "platform", "platforms", "investment", "investments", "fund", "funds",
+        "product", "products", "service", "services", "offer", "offers",
     }
 
     def verify(
@@ -72,7 +96,11 @@ class ClaimVerifier:
             raise ValueError("claim must contain non-empty text")
 
         normalized_evidence = self._normalize_evidence(evidence)
-        status = self._determine_status(claim_text, normalized_evidence)
+        status = self._determine_status(
+            claim_text,
+            normalized_evidence,
+            claim.get("type"),
+        )
         return {
             "claim_id": claim_id,
             "status": status,
@@ -120,16 +148,18 @@ class ClaimVerifier:
         self,
         claim: str,
         evidence: Sequence[dict[str, object]],
+        claim_type: object = None,
     ) -> str:
         if not evidence:
             return "UNVERIFIED"
 
         claim_terms = self._meaningful_terms(claim)
         claim_numbers = self._number_terms(claim)
-        claim_polarity = self._polarity(claim)
         relevant = []
         supporting = []
         contradicting = []
+        regulatory_approval = self._is_regulatory_approval_claim(claim, claim_type)
+        target_terms = self._specific_target_terms(claim)
 
         for item in evidence:
             evidence_text = str(item["text"])
@@ -141,10 +171,22 @@ class ClaimVerifier:
             if claim_numbers and not claim_numbers.issubset(self._number_terms(evidence_text)):
                 continue
 
-            evidence_polarity = self._polarity(evidence_text)
-            if evidence_polarity == claim_polarity and overlap >= 0.4:
+            if regulatory_approval and (
+                not target_terms or not target_terms.issubset(evidence_terms)
+            ):
+                continue
+
+            claim_predicates = self._predicates(claim)
+            evidence_predicates = self._predicates(evidence_text)
+            shared_predicates = claim_predicates.intersection(evidence_predicates)
+            if not shared_predicates:
+                continue
+
+            claim_negated = self._is_negated_near_predicate(claim, shared_predicates)
+            evidence_negated = self._is_negated_near_predicate(evidence_text, shared_predicates)
+            if evidence_negated == claim_negated and overlap >= 0.6:
                 supporting.append(item)
-            elif evidence_polarity != claim_polarity:
+            elif evidence_negated != claim_negated and overlap >= 0.5:
                 contradicting.append(item)
 
         if supporting and contradicting:
@@ -163,11 +205,50 @@ class ClaimVerifier:
             return "UNSUPPORTED"
         return "UNVERIFIED"
 
-    def _polarity(self, text: str) -> int:
+    def _is_negated_near_predicate(self, text: str, predicates: set[str]) -> bool:
+        tokens = self._tokens(text)
+        for index, token in enumerate(tokens):
+            predicate = next(
+                (name for name, forms in self._predicate_forms.items() if token in forms),
+                None,
+            )
+            if predicate not in predicates:
+                continue
+            start = max(0, index - 3)
+            end = min(len(tokens), index + 3)
+            if any(
+                item in self._negation_terms or item.endswith("n't")
+                for item in tokens[start:end]
+            ):
+                return True
+        return False
+
+    def _predicates(self, text: str) -> set[str]:
         tokens = set(self._tokens(text))
-        has_negation = bool(tokens.intersection(self._negation_terms))
-        has_negative_claim = bool(tokens.intersection(self._negative_claim_terms))
-        return -1 if has_negation or has_negative_claim else 1
+        return {
+            name
+            for name, forms in self._predicate_forms.items()
+            if tokens.intersection(forms)
+        }
+
+    def _is_regulatory_approval_claim(self, claim: str, claim_type: object) -> bool:
+        tokens = set(self._tokens(claim))
+        return (
+            claim_type == "regulatory"
+            or bool(tokens.intersection(self._regulators))
+            and bool(tokens.intersection(self._approval_terms))
+        )
+
+    def _specific_target_terms(self, claim: str) -> set[str]:
+        tokens = self._meaningful_terms(claim)
+        generic_terms = (
+            self._regulators
+            | self._approval_terms
+            | self._generic_targets
+            | {"return", "profit", "high", "fixed", "financial", "guaranteed"}
+        )
+        generic_terms.update(self._stem(term) for term in tuple(generic_terms))
+        return tokens.difference(generic_terms)
 
     def _meaningful_terms(self, text: str) -> set[str]:
         return {
@@ -180,7 +261,7 @@ class ClaimVerifier:
         return {token for token in self._tokens(text) if any(char.isdigit() for char in token)}
 
     def _tokens(self, text: str) -> list[str]:
-        return [token.lower() for token in self._token_pattern.findall(text)]
+        return [token.lower() for token in re.findall(r"[a-z]+(?:'[a-z]+)?|[0-9]+%?", text.lower())]
 
     @staticmethod
     def _stem(token: str) -> str:

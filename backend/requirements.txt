@@ -13,4 +13,4 @@ transformers
 numpy
 scipy
 huggingface-hub
-sentence-tranformers
+sentence-transformers

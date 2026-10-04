@@ -29,7 +29,10 @@ class SentenceTransformerEmbedder:
             normalize_embeddings=self.normalize_embeddings,
         )
         return [
-            {"text": text, "embedding": vector.tolist()}
+            {
+                "text": text,
+                "embedding": vector.tolist() if hasattr(vector, "tolist") else list(vector),
+            }
             for text, vector in zip(values, vectors)
         ]
 

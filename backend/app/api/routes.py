@@ -241,7 +241,6 @@ def run_evidence_and_verification(claims: List[Dict[str, Any]]) -> List[Dict[str
         verification_results.append(v_res)
     return verification_results
 
-
 def run_risk_engine(
     claims: List[Dict[str, Any]],
     signals: List[Dict[str, Any]],
