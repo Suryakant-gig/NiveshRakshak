@@ -40,6 +40,8 @@ class BM25Retriever:
 
         self.documents = extracted_documents
         self.tokenized_documents = [self.tokenize(text) for text in self.documents]
+        if any(not tokens for tokens in self.tokenized_documents):
+            raise ValueError("each document must contain searchable text")
         self.term_frequencies = [Counter(tokens) for tokens in self.tokenized_documents]
         self.average_document_length = sum(
             len(tokens) for tokens in self.tokenized_documents
@@ -65,6 +67,8 @@ class BM25Retriever:
             raise IndexError("document_index is out of range")
 
         query_terms = Counter(self.tokenize(query))
+        if not query_terms:
+            return 0.0
         document_terms = self.term_frequencies[document_index]
         document_length = len(self.tokenized_documents[document_index])
         score = 0.0
@@ -87,6 +91,8 @@ class BM25Retriever:
             raise ValueError("top_k must be at least 1")
         if not self.documents:
             raise RuntimeError("fit must be called before searching")
+        if not self.tokenize(query):
+            return []
 
         ranked = sorted(
             (
@@ -99,6 +105,7 @@ class BM25Retriever:
             key=lambda result: result["score"],
             reverse=True,
         )
+        ranked = [result for result in ranked if result["score"] > 0]
         return [
             {**result, "rank": rank}
             for rank, result in enumerate(ranked[:top_k], start=1)
