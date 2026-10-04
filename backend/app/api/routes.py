@@ -219,24 +219,27 @@ def run_evidence_and_verification(claims: List[Dict[str, Any]]) -> List[Dict[str
     for claim in claims:
         c_id = claim.get("id", "claim_001")
         c_text = claim.get("text", "")
-        if not isinstance(c_text, str) or not c_text.strip():
-            verification_results.append({
-                "claim_id": c_id,
-                "status": VerificationStatus.UNVERIFIED,
-                "evidence": [],
-            })
-            continue
+        evidence_list = []
+        try:
+            from backend.app.retrieval.hybrid import retrieve_evidence
+            evidence_list = retrieve_evidence(c_text)
+        except Exception:
+            evidence_list = _default_retrieve_evidence(c_text)
 
-        from backend.app.evidence.search import ClaimSourceSearch
-        from backend.app.evidence.verifier import verify_claim
+        v_res = None
+        try:
+            from backend.app.evidence.verifier import verify_claim
+            v_res = verify_claim(c_text, evidence_list)
+            if v_res and "claim_id" not in v_res:
+                v_res["claim_id"] = c_id
+        except Exception:
+            v_res = _default_verify_claim(c_id, c_text, evidence_list)
 
-        candidate_evidence = _default_retrieve_evidence(c_text)
-        searched = ClaimSourceSearch().search(claim, candidate_evidence)
-        evidence_list = searched.get("evidence", [])
-        v_res = verify_claim(claim, evidence_list)
+        if not v_res:
+            v_res = _default_verify_claim(c_id, c_text, evidence_list)
+
         verification_results.append(v_res)
     return verification_results
-
 
 def run_risk_engine(
     claims: List[Dict[str, Any]],
